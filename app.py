@@ -9,11 +9,11 @@ from requests.auth import HTTPBasicAuth
 def load_file(file, file_type, delimiter=None):
     try:
         if file_type == "csv":
-        if delimiter is None:
-            # Automatically detect delimiter if not provided
-            delimiter = ',' if ',' in file.read(1024).decode() else '|'
-            file.seek(0)
-        return pd.read_csv(file, delimiter=delimiter, on_bad_lines='skip', low_memory=False)
+            if delimiter is None:
+                # Automatically detect delimiter if not provided
+                delimiter = ',' if ',' in file.read(1024).decode() else '|'
+                file.seek(0)
+            return pd.read_csv(file, delimiter=delimiter, on_bad_lines='skip', low_memory=False)
         elif file_type == "xlsx":
             return pd.read_excel(file, engine='openpyxl')
         elif file_type == "xml":
@@ -85,7 +85,7 @@ elif supplier_source == "From URL":
 
             # Check file type and load the file
             file_type = supplier_url.split(".")[-1]
-            supplier_df = load_file(BytesIO(response.content), file_type, delimiter=None)  # Explicitly setting semicolon as delimiter
+            supplier_df = load_file(BytesIO(response.content), file_type, delimiter=None)
             if supplier_df is not None:
                 supplier_df.columns = supplier_df.columns.str.strip().str.lower()
                 st.success(f"Supplier file from URL '{supplier_url}' loaded successfully!")
@@ -190,16 +190,15 @@ if 'master_df' in st.session_state and 'supplier_df' in st.session_state:
 if 'updated_df' in st.session_state or 'unmatched_df' in st.session_state:
     st.header("Step 5: Download Updated Files")
 
-    updated_df = st.session_state['updated_df']
-    unmatched_df = st.session_state['unmatched_df']
+    updated_df = st.session_state.get('updated_df')
+    unmatched_df = st.session_state.get('unmatched_df')
 
     # Download updated master file with new SKUs
-    updated_csv = updated_df.to_csv(index=False).encode('utf-8')
-    st.download_button("Download Master with Updated SKUs", updated_csv, "updated_master.csv", "text/csv")
-    if 'unmatched_df' in st.session_state:
+    if updated_df is not None:
+        updated_csv = updated_df.to_csv(index=False).encode('utf-8')
+        st.download_button("Download Master with Updated SKUs", updated_csv, "updated_master.csv", "text/csv")
+    
+    # Download supplier products not found in the master
+    if unmatched_df is not None:
         unmatched_csv = unmatched_df.to_csv(index=False).encode('utf-8')
         st.download_button("Download Products from Supplier Not Found in Master", unmatched_csv, "unmatched_products.csv", "text/csv")
-
-    # Download supplier products not found in the master
-    unmatched_csv = unmatched_df.to_csv(index=False).encode('utf-8')
-    st.download_button("Download Products from Supplier Not Found in Master", unmatched_csv, "unmatched_products.csv", "text/csv")

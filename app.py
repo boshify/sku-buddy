@@ -16,7 +16,6 @@ def ensure_columns(df, columns):
 def load_file(file, file_type, delimiter=','):
     try:
         if file_type == "csv":
-            # Use on_bad_lines='skip' to skip problematic lines in recent pandas versions
             return pd.read_csv(file, delimiter=delimiter, on_bad_lines='skip')
         elif file_type == "xlsx":
             return pd.read_excel(file, engine='openpyxl')
@@ -110,22 +109,36 @@ if 'master_df' in st.session_state and 'supplier_df' in st.session_state:
 
         # Check if SKUs are different and update
         updated_df = master_df.copy()
+        skus_updated = 0
         for index, row in matched_df.iterrows():
             if row[sku_name_master] != row['SKU_supplier']:
                 updated_df.loc[updated_df[match_key] == row[match_key], sku_name_master] = row['SKU_supplier']
+                skus_updated += 1
 
         # Find products from supplier that are not in master
         unmatched_df = supplier_df[~supplier_df[file_mapping_key].isin(matched_df[file_mapping_key])]
+        products_not_in_master = len(unmatched_df)
 
-        # Step 5: Provide Downloadable Files
-        st.header("Step 4: Download Updated Files")
+        # Store results in session state to prevent reset after download
+        st.session_state['updated_df'] = updated_df
+        st.session_state['unmatched_df'] = unmatched_df
+        st.session_state['skus_updated'] = skus_updated
+        st.session_state['products_not_in_master'] = products_not_in_master
 
-        # Download updated master file with new SKUs
-        updated_csv = updated_df.to_csv(index=False).encode('utf-8')
-        st.download_button("Download Master with Updated SKUs", updated_csv, "updated_master.csv", "text/csv")
+        # Display success message with summary
+        st.success(f"SKUs Updated: {skus_updated}. Products Not In Master: {products_not_in_master}")
 
-        # Download supplier products not found in the master
-        unmatched_csv = unmatched_df.to_csv(index=False).encode('utf-8')
-        st.download_button("Download Products from Supplier Not Found in Master", unmatched_csv, "unmatched_products.csv", "text/csv")
+# Step 5: Provide Downloadable Files if Available
+if 'updated_df' in st.session_state and 'unmatched_df' in st.session_state:
+    st.header("Step 4: Download Updated Files")
 
-        st.success("Files are ready for download!")
+    updated_df = st.session_state['updated_df']
+    unmatched_df = st.session_state['unmatched_df']
+
+    # Download updated master file with new SKUs
+    updated_csv = updated_df.to_csv(index=False).encode('utf-8')
+    st.download_button("Download Master with Updated SKUs", updated_csv, "updated_master.csv", "text/csv")
+
+    # Download supplier products not found in the master
+    unmatched_csv = unmatched_df.to_csv(index=False).encode('utf-8')
+    st.download_button("Download Products from Supplier Not Found in Master", unmatched_csv, "unmatched_products.csv", "text/csv")

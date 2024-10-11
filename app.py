@@ -116,29 +116,39 @@ if 'master_df' in st.session_state and 'supplier_df' in st.session_state:
         sku_name_supplier = st.session_state['sku_name_supplier']
         match_key_supplier = st.session_state['match_key_supplier']
 
-        # Find products that match in both files based on the selected key
-        matched_df = pd.merge(master_df, supplier_df, left_on=match_key_master, right_on=match_key_supplier, how='inner', suffixes=('_master', '_supplier'))
+        # Check if the necessary fields are present in both files
+        if match_key_master not in master_df.columns:
+            st.error(f"The selected Match Key '{match_key_master}' does not exist in the Master File.")
+        elif match_key_supplier not in supplier_df.columns:
+            st.error(f"The selected Match Key '{match_key_supplier}' does not exist in the Supplier File.")
+        elif sku_name_master not in master_df.columns:
+            st.error(f"The selected SKU column '{sku_name_master}' does not exist in the Master File.")
+        elif sku_name_supplier not in supplier_df.columns:
+            st.error(f"The selected SKU column '{sku_name_supplier}' does not exist in the Supplier File.")
+        else:
+            # Proceed with matching if all fields are valid
+            matched_df = pd.merge(master_df, supplier_df, left_on=match_key_master, right_on=match_key_supplier, how='inner', suffixes=('_master', '_supplier'))
 
-        # Check if SKUs are different and update
-        updated_df = master_df.copy()
-        skus_updated = 0
-        for index, row in matched_df.iterrows():
-            if row[sku_name_master] != row[sku_name_supplier]:
-                updated_df.loc[updated_df[match_key_master] == row[match_key_master], sku_name_master] = row[sku_name_supplier]
-                skus_updated += 1
+            # Check if SKUs are different and update
+            updated_df = master_df.copy()
+            skus_updated = 0
+            for index, row in matched_df.iterrows():
+                if row[sku_name_master] != row[sku_name_supplier]:
+                    updated_df.loc[updated_df[match_key_master] == row[match_key_master], sku_name_master] = row[sku_name_supplier]
+                    skus_updated += 1
 
-        # Find products from supplier that are not in master
-        unmatched_df = supplier_df[~supplier_df[match_key_supplier].isin(matched_df[match_key_supplier])]
-        products_not_in_master = len(unmatched_df)
+            # Find products from supplier that are not in master
+            unmatched_df = supplier_df[~supplier_df[match_key_supplier].isin(matched_df[match_key_supplier])]
+            products_not_in_master = len(unmatched_df)
 
-        # Store results in session state to prevent reset after download
-        st.session_state['updated_df'] = updated_df
-        st.session_state['unmatched_df'] = unmatched_df
-        st.session_state['skus_updated'] = skus_updated
-        st.session_state['products_not_in_master'] = products_not_in_master
+            # Store results in session state to prevent reset after download
+            st.session_state['updated_df'] = updated_df
+            st.session_state['unmatched_df'] = unmatched_df
+            st.session_state['skus_updated'] = skus_updated
+            st.session_state['products_not_in_master'] = products_not_in_master
 
-        # Display success message with summary
-        st.success(f"SKUs Updated: {skus_updated}. Products Not In Master: {products_not_in_master}")
+            # Display success message with summary
+            st.success(f"SKUs Updated: {skus_updated}. Products Not In Master: {products_not_in_master}")
 
 # Step 5: Provide Downloadable Files if Available
 if 'updated_df' in st.session_state and 'unmatched_df' in st.session_state:

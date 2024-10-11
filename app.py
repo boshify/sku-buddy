@@ -107,7 +107,7 @@ if 'supplier_df' in st.session_state:
 if 'master_df' in st.session_state and 'supplier_df' in st.session_state:
     st.header("Step 4: Match Products and Update SKUs")
 
-    if st.button("Match Products and Update SKUs"):
+    if st.button("Match Products and Update SKUs") or 'matched_df' not in st.session_state:
         master_df = st.session_state['master_df']
         supplier_df = st.session_state['supplier_df']
         sku_name_master = st.session_state['sku_name_master']
@@ -136,37 +136,34 @@ if 'master_df' in st.session_state and 'supplier_df' in st.session_state:
                 right_on=match_key_supplier, 
                 how='inner'
             )
+            st.session_state['matched_df'] = matched_df
 
             # Display rows with mismatched SKUs
             sku_mismatch_df = matched_df[matched_df[sku_name_master] != matched_df[sku_name_supplier]]
             if not sku_mismatch_df.empty:
                 st.write("Rows with mismatched SKUs:", sku_mismatch_df[[match_key_master, sku_name_master, sku_name_supplier]])
+                st.session_state['sku_mismatch_df'] = sku_mismatch_df
 
-            # Provide an option to overwrite Master SKUs with Supplier SKUs where mismatched
-            if st.button("Overwrite Master SKUs with Supplier SKUs where mismatched"):
-                updated_df = master_df.copy()
-                for index, row in sku_mismatch_df.iterrows():
-                    updated_df.loc[updated_df[match_key_master] == row[match_key_master], sku_name_master] = row[sku_name_supplier]
-                skus_updated = len(sku_mismatch_df)
-            else:
-                updated_df = master_df.copy()
-                skus_updated = 0
-
-            # Find products from supplier that are not in master
-            unmatched_df = supplier_df[~supplier_df[match_key_supplier].isin(matched_df[match_key_supplier])]
-
-            products_not_in_master = len(unmatched_df)
-
-            # Store results in session state to prevent reset after download
-            st.session_state['updated_df'] = updated_df
-            st.session_state['unmatched_df'] = unmatched_df
-            st.session_state['skus_updated'] = skus_updated
-            st.session_state['products_not_in_master'] = products_not_in_master
-
-            # Display success message with summary
-            st.success(f"SKUs Updated: {skus_updated}. Products Not In Master: {products_not_in_master}")
         except KeyError as e:
             st.error(f"A KeyError occurred during the merge: {e}. Please make sure the selected columns exist and have matching values.")
+            st.stop()
+
+    # Provide an option to overwrite Master SKUs with Supplier SKUs where mismatched
+    if 'sku_mismatch_df' in st.session_state and st.button("Overwrite Master SKUs with Supplier SKUs where mismatched"):
+        updated_df = st.session_state['master_df'].copy()
+        sku_mismatch_df = st.session_state['sku_mismatch_df']
+        for index, row in sku_mismatch_df.iterrows():
+            updated_df.loc[updated_df[st.session_state['match_key_master']] == row[st.session_state['match_key_master']], st.session_state['sku_name_master']] = row[st.session_state['sku_name_supplier']]
+        st.session_state['updated_df'] = updated_df
+        st.session_state['skus_updated'] = len(sku_mismatch_df)
+
+        # Find products from supplier that are not in master
+        unmatched_df = st.session_state['supplier_df'][~st.session_state['supplier_df'][st.session_state['match_key_supplier']].isin(st.session_state['matched_df'][st.session_state['match_key_supplier']])]
+        st.session_state['unmatched_df'] = unmatched_df
+        st.session_state['products_not_in_master'] = len(unmatched_df)
+
+        # Display success message with summary
+        st.success(f"SKUs Updated: {st.session_state['skus_updated']}. Products Not In Master: {st.session_state['products_not_in_master']}")
 
 # Step 5: Provide Downloadable Files if Available
 if 'updated_df' in st.session_state and 'unmatched_df' in st.session_state:

@@ -47,6 +47,10 @@ if master_file:
         st.write("Master File Preview:", master_df.head())
         st.session_state['master_df'] = master_df
 
+        # Allow the user to specify the SKU column in the master file
+        sku_name_master = st.selectbox("Select SKU Name Column from Master File", master_df.columns)
+        st.session_state['sku_name_master'] = sku_name_master
+
 # Step 2: Upload Supplier File
 st.header("Step 2: Upload Supplier File or Provide URL")
 supplier_source = st.selectbox("Select Supplier File Source", ["Upload from Computer", "From URL"])
@@ -94,6 +98,7 @@ if 'master_df' in st.session_state and 'supplier_df' in st.session_state:
     
     master_df = st.session_state['master_df']
     supplier_df = st.session_state['supplier_df']
+    sku_name_master = st.session_state['sku_name_master']
     
     match_key = st.selectbox("Select Match Key Attribute from Master File", master_df.columns)
     file_mapping_key = st.selectbox("Select File Mapping Attribute from Supplier File", supplier_df.columns)
@@ -106,8 +111,8 @@ if 'master_df' in st.session_state and 'supplier_df' in st.session_state:
         # Check if SKUs are different and update
         updated_df = master_df.copy()
         for index, row in matched_df.iterrows():
-            if row['SKU_master'] != row['SKU_supplier']:
-                updated_df.loc[updated_df[match_key] == row[match_key], 'SKU'] = row['SKU_supplier']
+            if row[sku_name_master] != row['SKU_supplier']:
+                updated_df.loc[updated_df[match_key] == row[match_key], sku_name_master] = row['SKU_supplier']
 
         # Find products from supplier that are not in master
         unmatched_df = supplier_df[~supplier_df[file_mapping_key].isin(matched_df[file_mapping_key])]

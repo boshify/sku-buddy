@@ -16,7 +16,7 @@ def load_file(file, file_type, delimiter=None):
                 sniffer = csv.Sniffer()
                 delimiter = sniffer.sniff(sample).delimiter if sniffer.has_header(sample) else '|'
                 file.seek(0)
-            return pd.read_csv(file, delimiter=delimiter, on_bad_lines='skip', low_memory=False, engine='python', error_bad_lines=False, warn_bad_lines=True)
+            return pd.read_csv(file, delimiter=delimiter, on_bad_lines='skip', low_memory=False, engine='python')
         elif file_type == "xlsx":
             return pd.read_excel(file, engine='openpyxl')
         elif file_type == "xml":

@@ -131,24 +131,16 @@ if 'master_df' in st.session_state and 'supplier_df' in st.session_state:
                 suffixes=('_master', '_supplier')
             )
 
-            # Rename the merged columns for easier reference
-            matched_df.rename(columns={
-                f"{sku_name_master}_master": "master_sku",
-                f"{sku_name_supplier}_supplier": "supplier_sku",
-                f"{match_key_master}_master": "master_match_key",
-                f"{match_key_supplier}_supplier": "supplier_match_key"
-            }, inplace=True)
-
             # Check if SKUs are different and update
             updated_df = master_df.copy()
             skus_updated = 0
             for index, row in matched_df.iterrows():
-                if row["master_sku"] != row["supplier_sku"]:
-                    updated_df.loc[updated_df[match_key_master] == row["master_match_key"], sku_name_master] = row["supplier_sku"]
+                if row[f"{sku_name_master}_master"] != row[f"{sku_name_supplier}_supplier"]:
+                    updated_df.loc[updated_df[match_key_master] == row[f"{match_key_master}_master"], sku_name_master] = row[f"{sku_name_supplier}_supplier"]
                     skus_updated += 1
 
             # Find products from supplier that are not in master
-            unmatched_df = supplier_df[~supplier_df[match_key_supplier].isin(matched_df["supplier_match_key"])]
+            unmatched_df = supplier_df[~supplier_df[match_key_supplier].isin(matched_df[f"{match_key_supplier}_supplier"])]
 
             products_not_in_master = len(unmatched_df)
 

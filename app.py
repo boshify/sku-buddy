@@ -34,7 +34,7 @@ def load_file(file, file_type, delimiter=','):
 # Streamlit App Layout
 st.title("Product Feed SKU Matcher")
 
-# Upload Master File
+# Step 1: Upload Master File
 st.header("Step 1: Upload Master Product Feed")
 master_file = st.file_uploader("Upload Master Product Feed (CSV, XLS, XML)", type=["csv", "xlsx", "xml"])
 
@@ -46,9 +46,11 @@ if master_file:
         st.write("Master File Preview:", master_df.head())
         st.session_state['master_df'] = master_df
 
-        # Allow the user to specify the SKU column in the master file
-        sku_name_master = st.selectbox("Select SKU Name Column from Master File", master_df.columns)
+        # Ask for SKU field and Match Key field in the master file
+        sku_name_master = st.selectbox("Select SKU Column from Master File", master_df.columns)
+        match_key_master = st.selectbox("Select Match Key Column from Master File", master_df.columns)
         st.session_state['sku_name_master'] = sku_name_master
+        st.session_state['match_key_master'] = match_key_master
 
 # Step 2: Upload Supplier File
 st.header("Step 2: Upload Supplier File or Provide URL")
@@ -91,32 +93,42 @@ elif supplier_source == "From URL":
         except Exception as e:
             st.error(f"Failed to load file from URL: {e}")
 
-# Step 3: Set Matching and Mapping Attributes
-if 'master_df' in st.session_state and 'supplier_df' in st.session_state:
-    st.header("Step 3: Select Matching and Mapping Attributes")
+# Step 3: Set Supplier SKU and Match Key
+if 'supplier_df' in st.session_state:
+    st.header("Step 3: Select Supplier SKU and Match Key Fields")
     
-    master_df = st.session_state['master_df']
     supplier_df = st.session_state['supplier_df']
-    sku_name_master = st.session_state['sku_name_master']
     
-    match_key = st.selectbox("Select Match Key Attribute from Master File", master_df.columns)
-    file_mapping_key = st.selectbox("Select File Mapping Attribute from Supplier File", supplier_df.columns)
+    sku_name_supplier = st.selectbox("Select SKU Column from Supplier File", supplier_df.columns)
+    match_key_supplier = st.selectbox("Select Match Key Column from Supplier File", supplier_df.columns)
+    st.session_state['sku_name_supplier'] = sku_name_supplier
+    st.session_state['match_key_supplier'] = match_key_supplier
 
-    # Step 4: Process Matching
+# Step 4: Process Matching
+if 'master_df' in st.session_state and 'supplier_df' in st.session_state:
+    st.header("Step 4: Match Products and Update SKUs")
+
     if st.button("Match Products and Update SKUs"):
+        master_df = st.session_state['master_df']
+        supplier_df = st.session_state['supplier_df']
+        sku_name_master = st.session_state['sku_name_master']
+        match_key_master = st.session_state['match_key_master']
+        sku_name_supplier = st.session_state['sku_name_supplier']
+        match_key_supplier = st.session_state['match_key_supplier']
+
         # Find products that match in both files based on the selected key
-        matched_df = pd.merge(master_df, supplier_df, left_on=match_key, right_on=file_mapping_key, how='inner', suffixes=('_master', '_supplier'))
+        matched_df = pd.merge(master_df, supplier_df, left_on=match_key_master, right_on=match_key_supplier, how='inner', suffixes=('_master', '_supplier'))
 
         # Check if SKUs are different and update
         updated_df = master_df.copy()
         skus_updated = 0
         for index, row in matched_df.iterrows():
-            if row[sku_name_master] != row['SKU_supplier']:
-                updated_df.loc[updated_df[match_key] == row[match_key], sku_name_master] = row['SKU_supplier']
+            if row[sku_name_master] != row[sku_name_supplier]:
+                updated_df.loc[updated_df[match_key_master] == row[match_key_master], sku_name_master] = row[sku_name_supplier]
                 skus_updated += 1
 
         # Find products from supplier that are not in master
-        unmatched_df = supplier_df[~supplier_df[file_mapping_key].isin(matched_df[file_mapping_key])]
+        unmatched_df = supplier_df[~supplier_df[match_key_supplier].isin(matched_df[match_key_supplier])]
         products_not_in_master = len(unmatched_df)
 
         # Store results in session state to prevent reset after download
@@ -130,7 +142,7 @@ if 'master_df' in st.session_state and 'supplier_df' in st.session_state:
 
 # Step 5: Provide Downloadable Files if Available
 if 'updated_df' in st.session_state and 'unmatched_df' in st.session_state:
-    st.header("Step 4: Download Updated Files")
+    st.header("Step 5: Download Updated Files")
 
     updated_df = st.session_state['updated_df']
     unmatched_df = st.session_state['unmatched_df']

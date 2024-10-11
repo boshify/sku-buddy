@@ -16,8 +16,8 @@ def ensure_columns(df, columns):
 def load_file(file, file_type, delimiter=','):
     try:
         if file_type == "csv":
-            # Attempt to read CSV with error handling
-            return pd.read_csv(file, delimiter=delimiter, error_bad_lines=False, warn_bad_lines=True)
+            # Use on_bad_lines='skip' to skip problematic lines in recent pandas versions
+            return pd.read_csv(file, delimiter=delimiter, on_bad_lines='skip')
         elif file_type == "xlsx":
             return pd.read_excel(file, engine='openpyxl')
         elif file_type == "xml":

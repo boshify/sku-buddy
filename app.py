@@ -38,6 +38,7 @@ if master_file:
         master_df.columns = master_df.columns.str.strip()
         st.success(f"Master file '{master_file.name}' loaded successfully!")
         st.write("Master File Preview:", master_df.head())
+        st.write("Master File Columns:", list(master_df.columns))  # Display all column names for debugging
         st.session_state['master_df'] = master_df
 
         # Ask for SKU field and Match Key field in the master file
@@ -62,6 +63,7 @@ if supplier_source == "Upload from Computer":
             supplier_df.columns = supplier_df.columns.str.strip()
             st.success(f"Supplier file '{supplier_file.name}' loaded successfully!")
             st.write("Supplier File Preview:", supplier_df.head())
+            st.write("Supplier File Columns:", list(supplier_df.columns))  # Display all column names for debugging
             st.session_state['supplier_df'] = supplier_df
 
 elif supplier_source == "From URL":
@@ -84,6 +86,7 @@ elif supplier_source == "From URL":
                 supplier_df.columns = supplier_df.columns.str.strip()
                 st.success(f"Supplier file from URL '{supplier_url}' loaded successfully!")
                 st.write("Supplier File Preview:", supplier_df.head())
+                st.write("Supplier File Columns:", list(supplier_df.columns))  # Display all column names for debugging
                 st.session_state['supplier_df'] = supplier_df
 
         except Exception as e:
@@ -113,12 +116,16 @@ if 'master_df' in st.session_state and 'supplier_df' in st.session_state:
         match_key_supplier = st.session_state['match_key_supplier']
 
         # Ensure all match keys are treated as strings to avoid mismatches due to type differences
-        master_df[match_key_master] = master_df[match_key_master].astype(str)
-        supplier_df[match_key_supplier] = supplier_df[match_key_supplier].astype(str)
+        try:
+            master_df[match_key_master] = master_df[match_key_master].astype(str)
+            supplier_df[match_key_supplier] = supplier_df[match_key_supplier].astype(str)
 
-        # Ensure the SKU columns are also treated as strings
-        master_df[sku_name_master] = master_df[sku_name_master].astype(str)
-        supplier_df[sku_name_supplier] = supplier_df[sku_name_supplier].astype(str)
+            # Ensure the SKU columns are also treated as strings
+            master_df[sku_name_master] = master_df[sku_name_master].astype(str)
+            supplier_df[sku_name_supplier] = supplier_df[sku_name_supplier].astype(str)
+        except KeyError as e:
+            st.error(f"A KeyError occurred while converting columns to string: {e}. Please make sure the selected columns exist.")
+            st.stop()
 
         # Proceed with matching using column names directly
         try:
@@ -152,7 +159,7 @@ if 'master_df' in st.session_state and 'supplier_df' in st.session_state:
             # Display success message with summary
             st.success(f"SKUs Updated: {skus_updated}. Products Not In Master: {products_not_in_master}")
         except KeyError as e:
-            st.error(f"A KeyError occurred: {e}. Please make sure the selected columns exist and have matching values.")
+            st.error(f"A KeyError occurred during the merge: {e}. Please make sure the selected columns exist and have matching values.")
 
 # Step 5: Provide Downloadable Files if Available
 if 'updated_df' in st.session_state and 'unmatched_df' in st.session_state:

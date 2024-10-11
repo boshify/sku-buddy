@@ -45,7 +45,7 @@ if master_file:
     file_type = master_file.name.split(".")[-1]
     master_df = load_file(master_file, file_type)
     if master_df is not None:
-        master_df.columns = pd.io.parsers.ParserBase({'names': master_df.columns})._maybe_dedup_names(master_df.columns)
+        master_df.columns = pd.io.common._maybe_dedup_names(master_df.columns)
         st.success(f"Master file '{master_file.name}' loaded successfully!")
         st.write("Master File Preview:", master_df.head())
         st.write("Master File Columns:", list(master_df.columns))  # Display all column names for debugging
@@ -71,7 +71,7 @@ if supplier_source == "Upload from Computer":
         supplier_df = load_file(supplier_file, file_type, delimiter=None)
         if supplier_df is not None:
             # Handle duplicate columns by renaming them with suffixes
-            supplier_df.columns = pd.io.parsers.ParserBase({'names': supplier_df.columns})._maybe_dedup_names(supplier_df.columns)
+            supplier_df.columns = pd.io.common._maybe_dedup_names(supplier_df.columns)
             supplier_df.columns = pd.io.parsers.ParserBase({'names': supplier_df.columns})._maybe_dedup_names(supplier_df.columns)
             st.success(f"Supplier file '{supplier_file.name}' loaded successfully!")
             st.write("Supplier File Preview:", supplier_df.head())

@@ -14,15 +14,19 @@ def ensure_columns(df, columns):
 
 # Helper function to load and process CSV, XLS, or XML files
 def load_file(file, file_type):
-    if file_type == "csv":
-        return pd.read_csv(file)
-    elif file_type == "xlsx":
-        return pd.read_excel(file, engine='openpyxl')
-    elif file_type == "xml":
-        tree = etree.parse(file)
-        products = tree.xpath('//product')
-        data = [[p.findtext('SKU'), p.findtext('Product_Name'), p.findtext('Price')] for p in products]
-        return pd.DataFrame(data, columns=['SKU', 'Product_Name', 'Price'])
+    try:
+        if file_type == "csv":
+            return pd.read_csv(file)
+        elif file_type == "xlsx":
+            return pd.read_excel(file, engine='openpyxl')
+        elif file_type == "xml":
+            tree = etree.parse(file)
+            products = tree.xpath('//product')
+            data = [[p.findtext('SKU'), p.findtext('Product_Name'), p.findtext('Price')] for p in products]
+            return pd.DataFrame(data, columns=['SKU', 'Product_Name', 'Price'])
+    except pd.errors.ParserError as e:
+        st.error(f"Error loading file: {e}. This may be due to an issue with file formatting. Please check your CSV file for formatting errors.")
+        return None
 
 # Streamlit App Layout
 st.title("Product Feed SKU Matcher")
@@ -34,11 +38,10 @@ master_file = st.file_uploader("Upload Master Product Feed (CSV, XLS, XML)", typ
 if master_file:
     file_type = master_file.name.split(".")[-1]
     master_df = load_file(master_file, file_type)
-    st.success(f"Master file '{master_file.name}' loaded successfully!")
-    st.write("Master File Preview:", master_df.head())
-    
-    # Store master file in session state for reuse
-    st.session_state['master_df'] = master_df
+    if master_df is not None:
+        st.success(f"Master file '{master_file.name}' loaded successfully!")
+        st.write("Master File Preview:", master_df.head())
+        st.session_state['master_df'] = master_df
 
 # Step 2: Upload Supplier File
 st.header("Step 2: Upload Supplier File or Provide URL")
@@ -52,9 +55,10 @@ if supplier_source == "Upload from Computer":
     if supplier_file:
         file_type = supplier_file.name.split(".")[-1]
         supplier_df = load_file(supplier_file, file_type)
-        st.success(f"Supplier file '{supplier_file.name}' loaded successfully!")
-        st.write("Supplier File Preview:", supplier_df.head())
-        st.session_state['supplier_df'] = supplier_df
+        if supplier_df is not None:
+            st.success(f"Supplier file '{supplier_file.name}' loaded successfully!")
+            st.write("Supplier File Preview:", supplier_df.head())
+            st.session_state['supplier_df'] = supplier_df
 
 elif supplier_source == "From URL":
     supplier_url = st.text_input("Enter Supplier File URL")
@@ -63,6 +67,7 @@ elif supplier_source == "From URL":
 
     if supplier_url:
         try:
+            # If username or password is blank, do not use authentication
             if username and password:
                 response = requests.get(supplier_url, auth=HTTPBasicAuth(username, password))
             else:
@@ -71,9 +76,10 @@ elif supplier_source == "From URL":
             # Check file type and load the file
             file_type = supplier_url.split(".")[-1]
             supplier_df = load_file(BytesIO(response.content), file_type)
-            st.success(f"Supplier file from URL '{supplier_url}' loaded successfully!")
-            st.write("Supplier File Preview:", supplier_df.head())
-            st.session_state['supplier_df'] = supplier_df
+            if supplier_df is not None:
+                st.success(f"Supplier file from URL '{supplier_url}' loaded successfully!")
+                st.write("Supplier File Preview:", supplier_df.head())
+                st.session_state['supplier_df'] = supplier_df
 
         except Exception as e:
             st.error(f"Failed to load file from URL: {e}")

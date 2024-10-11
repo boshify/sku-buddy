@@ -119,6 +119,10 @@ if 'master_df' in st.session_state and 'supplier_df' in st.session_state:
         elif sku_name_supplier not in supplier_df.columns:
             st.error(f"The selected SKU column '{sku_name_supplier}' does not exist in the Supplier File.")
         else:
+            # Ensure all match keys are treated as strings to avoid mismatches due to type differences
+            master_df[match_key_master] = master_df[match_key_master].astype(str)
+            supplier_df[match_key_supplier] = supplier_df[match_key_supplier].astype(str)
+
             # Proceed with matching if all fields are valid
             matched_df = pd.merge(master_df, supplier_df, left_on=match_key_master, right_on=match_key_supplier, how='inner', suffixes=('_master', '_supplier'))
 

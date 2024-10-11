@@ -132,6 +132,11 @@ if 'master_df' in st.session_state and 'supplier_df' in st.session_state:
 
             # Find products from supplier that are not in master
             unmatched_df = supplier_df[~supplier_df[match_key_supplier].isin(matched_df[match_key_supplier])]
+
+            # Correct KeyError by ensuring correct column exists in matched_df
+            if match_key_supplier not in matched_df.columns:
+                st.error(f"The Match Key '{match_key_supplier}' is not available in the merged data.")
+
             products_not_in_master = len(unmatched_df)
 
             # Store results in session state to prevent reset after download

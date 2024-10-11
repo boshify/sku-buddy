@@ -24,13 +24,13 @@ def load_file(file, file_type, delimiter=None):
             return pd.read_excel(file, engine='openpyxl')
         elif file_type == "xml":
             tree = etree.parse(BytesIO(file.read()))
-            products = tree.xpath('//product')
+            products = tree.xpath('//*[local-name()="product"]')
             data = []
             for p in products:
-                sku = p.findtext('SKU')
-                product_name = p.findtext('Product_Name')
-                price = p.findtext('Price')
-                if sku and product_name and price:
+                sku = p.findtext('*[local-name()="SKU"]')
+                product_name = p.findtext('*[local-name()="Product_Name"]')
+                price = p.findtext('*[local-name()="Price"]')
+                if sku is not None and product_name is not None and price is not None:
                     data.append([sku, product_name, price])
             return pd.DataFrame(data, columns=['SKU', 'Product_Name', 'Price'])
     except pd.errors.ParserError as e:

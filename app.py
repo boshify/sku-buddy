@@ -13,7 +13,7 @@ def load_file(file, file_type, delimiter=None):
                 # Automatically detect delimiter if not provided
                 delimiter = ',' if ',' in file.read(1024).decode() else '|'
                 file.seek(0)
-            return pd.read_csv(file, delimiter=delimiter, on_bad_lines='skip', low_memory=False)
+            return pd.read_csv(file, delimiter=delimiter, on_bad_lines='skip', low_memory=False, mangle_dupe_cols=True)
         elif file_type == "xlsx":
             return pd.read_excel(file, engine='openpyxl')
         elif file_type == "xml":
@@ -64,6 +64,9 @@ if supplier_source == "Upload from Computer":
         file_type = supplier_file.name.split(".")[-1]
         supplier_df = load_file(supplier_file, file_type, delimiter=None)
         if supplier_df is not None:
+            # Handle duplicate columns by renaming them with suffixes
+            supplier_df = supplier_df.loc[:, ~supplier_df.columns.duplicated()].copy()
+        if supplier_df is not None:
             supplier_df.columns = supplier_df.columns.str.strip().str.lower()
             st.success(f"Supplier file '{supplier_file.name}' loaded successfully!")
             st.write("Supplier File Preview:", supplier_df.head())
@@ -86,6 +89,9 @@ elif supplier_source == "From URL":
             # Check file type and load the file
             file_type = supplier_url.split(".")[-1]
             supplier_df = load_file(BytesIO(response.content), file_type, delimiter=None)
+            if supplier_df is not None:
+                # Handle duplicate columns by renaming them with suffixes
+                supplier_df = supplier_df.loc[:, ~supplier_df.columns.duplicated()].copy()
             if supplier_df is not None:
                 supplier_df.columns = supplier_df.columns.str.strip().str.lower()
                 st.success(f"Supplier file from URL '{supplier_url}' loaded successfully!")

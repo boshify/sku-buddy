@@ -71,7 +71,7 @@ if supplier_source == "Upload from Computer":
         supplier_df = load_file(supplier_file, file_type, delimiter=None)
         if supplier_df is not None:
             # Handle duplicate columns by renaming them with suffixes
-            supplier_df.columns = pd.io.parsers.base.ParserBase({'names': supplier_df.columns})._maybe_dedup_names(supplier_df.columns)
+            supplier_df.columns = pd.io.common._maybe_dedup_names(supplier_df.columns)
             supplier_df.columns = supplier_df.columns.str.strip().str.lower()
             st.success(f"Supplier file '{supplier_file.name}' loaded successfully!")
             st.write("Supplier File Preview:", supplier_df.head())

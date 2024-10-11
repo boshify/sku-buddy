@@ -14,15 +14,24 @@ def load_file(file, file_type, delimiter=None):
                 # Automatically detect delimiter if not provided
                 sample = file.read(1024).decode()
                 sniffer = csv.Sniffer()
-                delimiter = sniffer.sniff(sample).delimiter if sniffer.has_header(sample) else '|'
+                try:
+                    delimiter = sniffer.sniff(sample).delimiter
+                except csv.Error:
+                    delimiter = '|'
                 file.seek(0)
             return pd.read_csv(file, delimiter=delimiter, on_bad_lines='skip', engine='python')
         elif file_type == "xlsx":
             return pd.read_excel(file, engine='openpyxl')
         elif file_type == "xml":
-            tree = etree.parse(file)
+            tree = etree.parse(BytesIO(file.read()))
             products = tree.xpath('//product')
-            data = [[p.findtext('SKU'), p.findtext('Product_Name'), p.findtext('Price')] for p in products]
+            data = []
+            for p in products:
+                sku = p.findtext('SKU')
+                product_name = p.findtext('Product_Name')
+                price = p.findtext('Price')
+                if sku and product_name and price:
+                    data.append([sku, product_name, price])
             return pd.DataFrame(data, columns=['SKU', 'Product_Name', 'Price'])
     except pd.errors.ParserError as e:
         st.error(f"Error loading file: {e}. This may be due to an issue with file formatting. Please check your CSV file for formatting errors.")
@@ -96,16 +105,20 @@ elif supplier_source == "From URL":
             else:
                 response = requests.get(supplier_url)
 
-            # Check file type and load the file
-            file_type = supplier_url.split(".")[-1]
-            supplier_df = load_file(BytesIO(response.content), file_type, delimiter=None)
-            if supplier_df is not None:
-                supplier_df = rename_duplicate_columns(supplier_df)
-                supplier_df.columns = supplier_df.columns.str.strip().str.lower()
-                st.success(f"Supplier file from URL '{supplier_url}' loaded successfully!")
-                st.write("Supplier File Preview:", supplier_df.head())
-                st.write("Supplier File Columns:", list(supplier_df.columns))  # Display all column names for debugging
-                st.session_state['supplier_df'] = supplier_df
+            # Check response status
+            if response.status_code != 200:
+                st.error(f"Failed to fetch file from URL. HTTP Status Code: {response.status_code}")
+            else:
+                # Check file type and load the file
+                file_type = supplier_url.split(".")[-1]
+                supplier_df = load_file(BytesIO(response.content), file_type, delimiter=None)
+                if supplier_df is not None:
+                    supplier_df = rename_duplicate_columns(supplier_df)
+                    supplier_df.columns = supplier_df.columns.str.strip().str.lower()
+                    st.success(f"Supplier file from URL '{supplier_url}' loaded successfully!")
+                    st.write("Supplier File Preview:", supplier_df.head())
+                    st.write("Supplier File Columns:", list(supplier_df.columns))  # Display all column names for debugging
+                    st.session_state['supplier_df'] = supplier_df
 
         except Exception as e:
             st.error(f"Failed to load file from URL: {e}")
@@ -143,12 +156,12 @@ if 'master_df' in st.session_state and 'supplier_df' in st.session_state:
                 st.error("Selected SKU columns do not exist in the respective DataFrames. Please select valid columns.")
                 st.stop()
 
-            master_df[match_key_master] = master_df[match_key_master].astype(str)
-            supplier_df[match_key_supplier] = supplier_df[match_key_supplier].astype(str)
+            master_df[match_key_master] = master_df[match_key_master].fillna('').astype(str).str.strip().str.lower()
+            supplier_df[match_key_supplier] = supplier_df[match_key_supplier].fillna('').astype(str).str.strip().str.lower()
 
             # Ensure the SKU columns are also treated as strings
-            master_df[sku_name_master] = master_df[sku_name_master].astype(str)
-            supplier_df[sku_name_supplier] = supplier_df[sku_name_supplier].astype(str)
+            master_df[sku_name_master] = master_df[sku_name_master].fillna('').astype(str).str.strip()
+            supplier_df[sku_name_supplier] = supplier_df[sku_name_supplier].fillna('').astype(str).str.strip()
         except KeyError as e:
             st.error(f"A KeyError occurred while converting columns to string: {e}. Please make sure the selected columns exist.")
             st.stop()
@@ -187,8 +200,7 @@ if 'master_df' in st.session_state and 'supplier_df' in st.session_state:
     if 'sku_mismatch_df' in st.session_state and st.button("Overwrite Master SKUs with Supplier SKUs where mismatched"):
         updated_df = st.session_state['master_df'].copy()
         sku_mismatch_df = st.session_state['sku_mismatch_df']
-        for index, row in sku_mismatch_df.iterrows():
-            updated_df.loc[updated_df[st.session_state['match_key_master']] == row['match_key'], st.session_state['sku_name_master']] = row['supplier_sku']
+        updated_df.loc[updated_df[st.session_state['match_key_master']].isin(sku_mismatch_df['match_key']), st.session_state['sku_name_master']] = updated_df[st.session_state['match_key_master']].map(sku_mismatch_df.set_index('match_key')['supplier_sku'])
         st.session_state['updated_df'] = updated_df
         st.session_state['skus_updated'] = len(sku_mismatch_df)
 

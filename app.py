@@ -4,6 +4,7 @@ import requests
 from io import BytesIO
 from lxml import etree
 from requests.auth import HTTPBasicAuth
+import csv
 
 # Helper function to load and process CSV, XLS, or XML files
 def load_file(file, file_type, delimiter=None):
@@ -12,14 +13,10 @@ def load_file(file, file_type, delimiter=None):
             if delimiter is None:
                 # Automatically detect delimiter if not provided
                 sample = file.read(1024).decode()
-                if ',' in sample:
-                    delimiter = ','
-                elif '|' in sample:
-                    delimiter = '|'
-                else:
-                    delimiter = ','
+                sniffer = csv.Sniffer()
+                delimiter = sniffer.sniff(sample).delimiter if sniffer.has_header(sample) else '|'
                 file.seek(0)
-            return pd.read_csv(file, delimiter=delimiter, on_bad_lines='skip', low_memory=False)
+            return pd.read_csv(file, delimiter=delimiter, on_bad_lines='skip', low_memory=False, engine='python', error_bad_lines=False, warn_bad_lines=True)
         elif file_type == "xlsx":
             return pd.read_excel(file, engine='openpyxl')
         elif file_type == "xml":
@@ -177,28 +174,4 @@ if 'master_df' in st.session_state and 'supplier_df' in st.session_state:
             st.session_state['matched_df'] = matched_df
 
             # Display rows with mismatched SKUs
-            sku_mismatch_df = matched_df[matched_df['master_sku'] != matched_df['supplier_sku']]
-            if not sku_mismatch_df.empty:
-                st.write("Rows with mismatched SKUs:", sku_mismatch_df[['match_key', 'master_sku', 'supplier_sku']])
-                st.session_state['sku_mismatch_df'] = sku_mismatch_df
-
-        except KeyError as e:
-            st.error(f"A KeyError occurred during the merge: {e}. Please make sure the selected columns exist and have matching values.")
-            st.stop()
-
-    # Provide an option to overwrite Master SKUs with Supplier SKUs where mismatched
-    if 'sku_mismatch_df' in st.session_state and st.button("Overwrite Master SKUs with Supplier SKUs where mismatched"):
-        updated_df = st.session_state['master_df'].copy()
-        sku_mismatch_df = st.session_state['sku_mismatch_df']
-        for index, row in sku_mismatch_df.iterrows():
-            updated_df.loc[updated_df[st.session_state['match_key_master']] == row['match_key'], st.session_state['sku_name_master']] = row['supplier_sku']
-        st.session_state['updated_df'] = updated_df
-        st.session_state['skus_updated'] = len(sku_mismatch_df)
-
-        # Find products from supplier that are not in master
-        unmatched_df = st.session_state['supplier_df'][~st.session_state['supplier_df'][st.session_state['match_key_supplier']].isin(st.session_state['matched_df']['match_key'])]
-        st.session_state['unmatched_df'] = unmatched_df
-        st.session_state['products_not_in_master'] = len(unmatched_df)
-
-        # Display success message with summary
-        st.success(f"SKUs Updated: {st.session_state['skus_updated']}. Products Not In Master: {st.session_state['products_not_in_master']}")
+            sku_mismatch_df = matched_df[matched_df['master_sku'] != matched_df['supplier_s

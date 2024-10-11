@@ -27,11 +27,11 @@ def load_file(file, file_type, delimiter=None):
             products = tree.findall('.//product')
             data = []
             for p in products:
-                sku = p.findtext('.//SKU')
-                product_name = p.findtext('.//Product_Name')
-                price = p.findtext('.//Price')
+                sku = p.findtext('.//product_sku')
+                product_name = p.findtext('.//product_name')
+                price = p.findtext('.//price')
                 if sku is not None and product_name is not None and price is not None:
-                    data.append([sku, product_name, price])
+                    data.append([sku.strip() if sku else None, product_name.strip() if product_name else None, price.strip() if price else None])
             return pd.DataFrame(data, columns=['SKU', 'Product_Name', 'Price'])
     except pd.errors.ParserError as e:
         st.error(f"Error loading file: {e}. This may be due to an issue with file formatting. Please check your CSV file for formatting errors.")

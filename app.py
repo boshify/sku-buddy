@@ -9,16 +9,15 @@ from requests.auth import HTTPBasicAuth
 def load_file(file, file_type, delimiter=None):
     try:
         if file_type == "csv":
-        if delimiter is None:
-            # Automatically detect delimiter if not provided
-            sample = file.read(1024).decode()
-            if ',' in sample:
-                delimiter = ','
-            elif '|' in sample:
-                delimiter = '|'
-            else:
-                delimiter = ','
-            file.seek(0)
+            if delimiter is None:
+                # Automatically detect delimiter if not provided
+                sample = file.read(1024).decode()
+                if ',' in sample:
+                    delimiter = ','
+                elif '|' in sample:
+                    delimiter = '|'
+                else:
+                    delimiter = ','
                 file.seek(0)
             return pd.read_csv(file, delimiter=delimiter, on_bad_lines='skip', low_memory=False, mangle_dupe_cols=True)
         elif file_type == "xlsx":
@@ -73,8 +72,7 @@ if supplier_source == "Upload from Computer":
         if supplier_df is not None:
             # Handle duplicate columns by renaming them with suffixes
             supplier_df = supplier_df.loc[:, ~supplier_df.columns.duplicated()].copy()
-        if supplier_df is not None:
-            supplier_df.columns = supplier_df.columns.str.strip().str.lower().str.replace('|', '', regex=False)
+            supplier_df.columns = supplier_df.columns.str.strip().str.lower()
             st.success(f"Supplier file '{supplier_file.name}' loaded successfully!")
             st.write("Supplier File Preview:", supplier_df.head())
             st.write("Supplier File Columns:", list(supplier_df.columns))  # Display all column names for debugging
@@ -99,7 +97,6 @@ elif supplier_source == "From URL":
             if supplier_df is not None:
                 # Handle duplicate columns by renaming them with suffixes
                 supplier_df = supplier_df.loc[:, ~supplier_df.columns.duplicated()].copy()
-            if supplier_df is not None:
                 supplier_df.columns = supplier_df.columns.str.strip().str.lower()
                 st.success(f"Supplier file from URL '{supplier_url}' loaded successfully!")
                 st.write("Supplier File Preview:", supplier_df.head())
@@ -197,21 +194,4 @@ if 'master_df' in st.session_state and 'supplier_df' in st.session_state:
         st.session_state['products_not_in_master'] = len(unmatched_df)
 
         # Display success message with summary
-        st.success(f"SKUs Updated: {st.session_state['skus_updated']}. Products Not In Master: {st.session_state['products_not_in_master']}")
-
-# Step 5: Provide Downloadable Files if Available
-if 'updated_df' in st.session_state or 'unmatched_df' in st.session_state:
-    st.header("Step 5: Download Updated Files")
-
-    updated_df = st.session_state.get('updated_df')
-    unmatched_df = st.session_state.get('unmatched_df')
-
-    # Download updated master file with new SKUs
-    if updated_df is not None:
-        updated_csv = updated_df.to_csv(index=False).encode('utf-8')
-        st.download_button("Download Master with Updated SKUs", updated_csv, "updated_master.csv", "text/csv")
-    
-    # Download supplier products not found in the master
-    if unmatched_df is not None:
-        unmatched_csv = unmatched_df.to_csv(index=False).encode('utf-8')
-        st.download_button("Download Products from Supplier Not Found in Master", unmatched_csv, "unmatched_products.csv", "text/csv")
+        st.success(f"SKUs Updated: {st.session_state['skus_updated']}. Products Not In Master: {st.session_state['products

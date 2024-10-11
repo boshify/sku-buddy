@@ -9,9 +9,16 @@ from requests.auth import HTTPBasicAuth
 def load_file(file, file_type, delimiter=None):
     try:
         if file_type == "csv":
-            if delimiter is None:
-                # Automatically detect delimiter if not provided
-                delimiter = ',' if ',' in file.read(1024).decode() else '|'
+        if delimiter is None:
+            # Automatically detect delimiter if not provided
+            sample = file.read(1024).decode()
+            if ',' in sample:
+                delimiter = ','
+            elif '|' in sample:
+                delimiter = '|'
+            else:
+                delimiter = ','
+            file.seek(0)
                 file.seek(0)
             return pd.read_csv(file, delimiter=delimiter, on_bad_lines='skip', low_memory=False, mangle_dupe_cols=True)
         elif file_type == "xlsx":
@@ -67,7 +74,7 @@ if supplier_source == "Upload from Computer":
             # Handle duplicate columns by renaming them with suffixes
             supplier_df = supplier_df.loc[:, ~supplier_df.columns.duplicated()].copy()
         if supplier_df is not None:
-            supplier_df.columns = supplier_df.columns.str.strip().str.lower()
+            supplier_df.columns = supplier_df.columns.str.strip().str.lower().str.replace('|', '', regex=False)
             st.success(f"Supplier file '{supplier_file.name}' loaded successfully!")
             st.write("Supplier File Preview:", supplier_df.head())
             st.write("Supplier File Columns:", list(supplier_df.columns))  # Display all column names for debugging

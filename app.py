@@ -71,7 +71,7 @@ if supplier_source == "Upload from Computer":
         supplier_df = load_file(supplier_file, file_type, delimiter=None)
         if supplier_df is not None:
             # Handle duplicate columns by renaming them with suffixes
-            supplier_df.columns = pd.io.parsers.ParserBase({'names': supplier_df.columns})._maybe_dedup_names(supplier_df.columns)
+            supplier_df.columns = pd.io.parsers.base.ParserBase({'names': supplier_df.columns})._maybe_dedup_names(supplier_df.columns)
             supplier_df.columns = supplier_df.columns.str.strip().str.lower()
             st.success(f"Supplier file '{supplier_file.name}' loaded successfully!")
             st.write("Supplier File Preview:", supplier_df.head())
@@ -96,7 +96,7 @@ elif supplier_source == "From URL":
             supplier_df = load_file(BytesIO(response.content), file_type, delimiter=None)
             if supplier_df is not None:
                 # Handle duplicate columns by renaming them with suffixes
-                supplier_df = supplier_df.loc[:, ~supplier_df.columns.duplicated()].copy()
+                supplier_df = supplier_df = supplier_df.loc[:, ~supplier_df.columns.duplicated()].copy()
                 supplier_df.columns = supplier_df.columns.str.strip().str.lower()
                 st.success(f"Supplier file from URL '{supplier_url}' loaded successfully!")
                 st.write("Supplier File Preview:", supplier_df.head())

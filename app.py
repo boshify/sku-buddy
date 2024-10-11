@@ -9,7 +9,7 @@ from requests.auth import HTTPBasicAuth
 def load_file(file, file_type, delimiter=','):
     try:
         if file_type == "csv":
-            return pd.read_csv(file, delimiter=delimiter, on_bad_lines='skip')
+            return pd.read_csv(file, delimiter=delimiter, on_bad_lines='skip', low_memory=False)
         elif file_type == "xlsx":
             return pd.read_excel(file, engine='openpyxl')
         elif file_type == "xml":
@@ -116,37 +116,44 @@ if 'master_df' in st.session_state and 'supplier_df' in st.session_state:
         master_df[match_key_master] = master_df[match_key_master].astype(str)
         supplier_df[match_key_supplier] = supplier_df[match_key_supplier].astype(str)
 
+        # Ensure the SKU columns are also treated as strings
+        master_df[sku_name_master] = master_df[sku_name_master].astype(str)
+        supplier_df[sku_name_supplier] = supplier_df[sku_name_supplier].astype(str)
+
         # Proceed with matching using column names directly
-        matched_df = pd.merge(
-            master_df, 
-            supplier_df, 
-            left_on=match_key_master, 
-            right_on=match_key_supplier, 
-            how='inner', 
-            suffixes=('_master', '_supplier')
-        )
+        try:
+            matched_df = pd.merge(
+                master_df, 
+                supplier_df, 
+                left_on=match_key_master, 
+                right_on=match_key_supplier, 
+                how='inner', 
+                suffixes=('_master', '_supplier')
+            )
 
-        # Check if SKUs are different and update
-        updated_df = master_df.copy()
-        skus_updated = 0
-        for index, row in matched_df.iterrows():
-            if row[sku_name_master] != row[sku_name_supplier]:
-                updated_df.loc[updated_df[match_key_master] == row[match_key_master], sku_name_master] = row[sku_name_supplier]
-                skus_updated += 1
+            # Check if SKUs are different and update
+            updated_df = master_df.copy()
+            skus_updated = 0
+            for index, row in matched_df.iterrows():
+                if row[f"{sku_name_master}_master"] != row[f"{sku_name_supplier}_supplier"]:
+                    updated_df.loc[updated_df[match_key_master] == row[match_key_master], sku_name_master] = row[f"{sku_name_supplier}_supplier"]
+                    skus_updated += 1
 
-        # Find products from supplier that are not in master
-        unmatched_df = supplier_df[~supplier_df[match_key_supplier].isin(matched_df[match_key_supplier])]
+            # Find products from supplier that are not in master
+            unmatched_df = supplier_df[~supplier_df[match_key_supplier].isin(matched_df[match_key_supplier])]
 
-        products_not_in_master = len(unmatched_df)
+            products_not_in_master = len(unmatched_df)
 
-        # Store results in session state to prevent reset after download
-        st.session_state['updated_df'] = updated_df
-        st.session_state['unmatched_df'] = unmatched_df
-        st.session_state['skus_updated'] = skus_updated
-        st.session_state['products_not_in_master'] = products_not_in_master
+            # Store results in session state to prevent reset after download
+            st.session_state['updated_df'] = updated_df
+            st.session_state['unmatched_df'] = unmatched_df
+            st.session_state['skus_updated'] = skus_updated
+            st.session_state['products_not_in_master'] = products_not_in_master
 
-        # Display success message with summary
-        st.success(f"SKUs Updated: {skus_updated}. Products Not In Master: {products_not_in_master}")
+            # Display success message with summary
+            st.success(f"SKUs Updated: {skus_updated}. Products Not In Master: {products_not_in_master}")
+        except KeyError as e:
+            st.error(f"A KeyError occurred: {e}. Please make sure the selected columns exist and have matching values.")
 
 # Step 5: Provide Downloadable Files if Available
 if 'updated_df' in st.session_state and 'unmatched_df' in st.session_state:

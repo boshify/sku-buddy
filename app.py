@@ -137,13 +137,20 @@ if 'master_df' in st.session_state and 'supplier_df' in st.session_state:
                 how='inner'
             )
 
-            # Check if SKUs are different and update
-            updated_df = master_df.copy()
-            skus_updated = 0
-            for index, row in matched_df.iterrows():
-                if row[sku_name_master] != row[sku_name_supplier]:
+            # Display rows with mismatched SKUs
+            sku_mismatch_df = matched_df[matched_df[sku_name_master] != matched_df[sku_name_supplier]]
+            if not sku_mismatch_df.empty:
+                st.write("Rows with mismatched SKUs:", sku_mismatch_df[[match_key_master, sku_name_master, sku_name_supplier]])
+
+            # Provide an option to overwrite Master SKUs with Supplier SKUs
+            if st.checkbox("Overwrite Master SKUs with Supplier SKUs where mismatched"):
+                updated_df = master_df.copy()
+                for index, row in sku_mismatch_df.iterrows():
                     updated_df.loc[updated_df[match_key_master] == row[match_key_master], sku_name_master] = row[sku_name_supplier]
-                    skus_updated += 1
+                skus_updated = len(sku_mismatch_df)
+            else:
+                updated_df = master_df.copy()
+                skus_updated = 0
 
             # Find products from supplier that are not in master
             unmatched_df = supplier_df[~supplier_df[match_key_supplier].isin(matched_df[match_key_supplier])]

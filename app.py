@@ -13,10 +13,11 @@ def ensure_columns(df, columns):
     return df[columns]
 
 # Helper function to load and process CSV, XLS, or XML files
-def load_file(file, file_type):
+def load_file(file, file_type, delimiter=','):
     try:
         if file_type == "csv":
-            return pd.read_csv(file)
+            # Attempt to read CSV with error handling
+            return pd.read_csv(file, delimiter=delimiter, error_bad_lines=False, warn_bad_lines=True)
         elif file_type == "xlsx":
             return pd.read_excel(file, engine='openpyxl')
         elif file_type == "xml":
@@ -26,6 +27,9 @@ def load_file(file, file_type):
             return pd.DataFrame(data, columns=['SKU', 'Product_Name', 'Price'])
     except pd.errors.ParserError as e:
         st.error(f"Error loading file: {e}. This may be due to an issue with file formatting. Please check your CSV file for formatting errors.")
+        return None
+    except Exception as e:
+        st.error(f"Failed to process file: {e}")
         return None
 
 # Streamlit App Layout
@@ -75,7 +79,7 @@ elif supplier_source == "From URL":
 
             # Check file type and load the file
             file_type = supplier_url.split(".")[-1]
-            supplier_df = load_file(BytesIO(response.content), file_type)
+            supplier_df = load_file(BytesIO(response.content), file_type, delimiter=';')  # Explicitly setting semicolon as delimiter
             if supplier_df is not None:
                 st.success(f"Supplier file from URL '{supplier_url}' loaded successfully!")
                 st.write("Supplier File Preview:", supplier_df.head())

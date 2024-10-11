@@ -19,7 +19,7 @@ def load_file(file, file_type, delimiter=None):
                 else:
                     delimiter = ','
                 file.seek(0)
-            return pd.read_csv(file, delimiter=delimiter, on_bad_lines='skip', low_memory=False, mangle_dupe_cols=True)
+            return pd.read_csv(file, delimiter=delimiter, on_bad_lines='skip', low_memory=False, )
         elif file_type == "xlsx":
             return pd.read_excel(file, engine='openpyxl')
         elif file_type == "xml":
@@ -194,4 +194,4 @@ if 'master_df' in st.session_state and 'supplier_df' in st.session_state:
         st.session_state['products_not_in_master'] = len(unmatched_df)
 
         # Display success message with summary
-        st.success(f"SKUs Updated: {st.session_state['skus_updated']}. Products Not In Master: {st.session_state['products
+        st.success(f"SKUs Updated: {st.session_state['skus_updated']}. Products Not In Master: {st.session_state['products_not_in_master']}")

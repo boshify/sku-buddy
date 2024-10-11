@@ -19,7 +19,7 @@ def load_file(file, file_type, delimiter=None):
                 else:
                     delimiter = ','
                 file.seek(0)
-            return pd.read_csv(file, delimiter=delimiter, on_bad_lines='skip', low_memory=False, mangle_dupe_cols=True)
+            return pd.read_csv(file, delimiter=delimiter, on_bad_lines='skip', low_memory=False)
         elif file_type == "xlsx":
             return pd.read_excel(file, engine='openpyxl')
         elif file_type == "xml":
@@ -71,7 +71,7 @@ if supplier_source == "Upload from Computer":
         supplier_df = load_file(supplier_file, file_type, delimiter=None)
         if supplier_df is not None:
             # Handle duplicate columns by renaming them with suffixes
-            supplier_df = supplier_df.loc[:, ~supplier_df.columns.duplicated(keep='first')].copy()
+            supplier_df.columns = pd.io.parsers.ParserBase({'names': supplier_df.columns})._maybe_dedup_names(supplier_df.columns)
             supplier_df.columns = supplier_df.columns.str.strip().str.lower()
             st.success(f"Supplier file '{supplier_file.name}' loaded successfully!")
             st.write("Supplier File Preview:", supplier_df.head())

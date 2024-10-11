@@ -35,7 +35,7 @@ if master_file:
     file_type = master_file.name.split(".")[-1]
     master_df = load_file(master_file, file_type)
     if master_df is not None:
-        master_df.columns = master_df.columns.str.strip()
+        master_df.columns = master_df.columns.str.strip().str.lower()
         st.success(f"Master file '{master_file.name}' loaded successfully!")
         st.write("Master File Preview:", master_df.head())
         st.write("Master File Columns:", list(master_df.columns))  # Display all column names for debugging
@@ -60,7 +60,7 @@ if supplier_source == "Upload from Computer":
         file_type = supplier_file.name.split(".")[-1]
         supplier_df = load_file(supplier_file, file_type)
         if supplier_df is not None:
-            supplier_df.columns = supplier_df.columns.str.strip()
+            supplier_df.columns = supplier_df.columns.str.strip().str.lower()
             st.success(f"Supplier file '{supplier_file.name}' loaded successfully!")
             st.write("Supplier File Preview:", supplier_df.head())
             st.write("Supplier File Columns:", list(supplier_df.columns))  # Display all column names for debugging
@@ -83,7 +83,7 @@ elif supplier_source == "From URL":
             file_type = supplier_url.split(".")[-1]
             supplier_df = load_file(BytesIO(response.content), file_type, delimiter=';')  # Explicitly setting semicolon as delimiter
             if supplier_df is not None:
-                supplier_df.columns = supplier_df.columns.str.strip()
+                supplier_df.columns = supplier_df.columns.str.strip().str.lower()
                 st.success(f"Supplier file from URL '{supplier_url}' loaded successfully!")
                 st.write("Supplier File Preview:", supplier_df.head())
                 st.write("Supplier File Columns:", list(supplier_df.columns))  # Display all column names for debugging
@@ -117,6 +117,14 @@ if 'master_df' in st.session_state and 'supplier_df' in st.session_state:
 
         # Ensure all match keys are treated as strings to avoid mismatches due to type differences
         try:
+            if match_key_master not in master_df.columns or match_key_supplier not in supplier_df.columns:
+                st.error("Selected Match Key columns do not exist in the respective DataFrames. Please select valid columns.")
+                st.stop()
+
+            if sku_name_master not in master_df.columns or sku_name_supplier not in supplier_df.columns:
+                st.error("Selected SKU columns do not exist in the respective DataFrames. Please select valid columns.")
+                st.stop()
+
             master_df[match_key_master] = master_df[match_key_master].astype(str)
             supplier_df[match_key_supplier] = supplier_df[match_key_supplier].astype(str)
 

@@ -112,19 +112,16 @@ if 'master_df' in st.session_state and 'supplier_df' in st.session_state:
         sku_name_supplier = st.session_state['sku_name_supplier']
         match_key_supplier = st.session_state['match_key_supplier']
 
-        # Proceed with matching using column locations instead of names
-        master_match_key_column = master_df.columns.get_loc(match_key_master)
-        supplier_match_key_column = supplier_df.columns.get_loc(match_key_supplier)
+        # Ensure all match keys are treated as strings to avoid mismatches due to type differences
+        master_df[match_key_master] = master_df[match_key_master].astype(str)
+        supplier_df[match_key_supplier] = supplier_df[match_key_supplier].astype(str)
 
-        master_df.iloc[:, master_match_key_column] = master_df.iloc[:, master_match_key_column].astype(str)
-        supplier_df.iloc[:, supplier_match_key_column] = supplier_df.iloc[:, supplier_match_key_column].astype(str)
-
-        # Proceed with matching if all fields are valid
+        # Proceed with matching using column names directly
         matched_df = pd.merge(
             master_df, 
             supplier_df, 
-            left_on=master_df.columns[master_match_key_column], 
-            right_on=supplier_df.columns[supplier_match_key_column], 
+            left_on=match_key_master, 
+            right_on=match_key_supplier, 
             how='inner', 
             suffixes=('_master', '_supplier')
         )
@@ -133,14 +130,12 @@ if 'master_df' in st.session_state and 'supplier_df' in st.session_state:
         updated_df = master_df.copy()
         skus_updated = 0
         for index, row in matched_df.iterrows():
-            master_sku_column = master_df.columns.get_loc(sku_name_master)
-            supplier_sku_column = supplier_df.columns.get_loc(sku_name_supplier)
             if row[sku_name_master] != row[sku_name_supplier]:
                 updated_df.loc[updated_df[match_key_master] == row[match_key_master], sku_name_master] = row[sku_name_supplier]
                 skus_updated += 1
 
         # Find products from supplier that are not in master
-        unmatched_df = supplier_df[~supplier_df[supplier_df.columns[supplier_match_key_column]].isin(matched_df[supplier_df.columns[supplier_match_key_column]])]
+        unmatched_df = supplier_df[~supplier_df[match_key_supplier].isin(matched_df[match_key_supplier])]
 
         products_not_in_master = len(unmatched_df)
 

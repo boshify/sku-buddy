@@ -178,14 +178,14 @@ if 'master_df' in st.session_state and 'supplier_df' in st.session_state:
         # Proceed with matching using column names directly
         try:
             # Rename columns for merge to prevent conflicts
-            master_df_renamed = master_df.rename(columns={
+            master_df_renamed = rename_duplicate_columns(master_df.rename(columns={
                 match_key_master: 'match_key',
                 sku_name_master: 'master_sku'
-            })
-            supplier_df_renamed = supplier_df.rename(columns={
+            }))
+            supplier_df_renamed = rename_duplicate_columns(supplier_df.rename(columns={
                 match_key_supplier: 'match_key',
                 sku_name_supplier: 'supplier_sku'
-            })
+            }))
 
             matched_df = pd.merge(
                 master_df_renamed, 

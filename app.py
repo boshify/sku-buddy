@@ -199,7 +199,7 @@ if 'master_df' in st.session_state and 'supplier_df' in st.session_state:
     # Provide an option to overwrite Master SKUs with Supplier SKUs where mismatched
     if 'sku_mismatch_df' in st.session_state and st.button("Overwrite Master SKUs with Supplier SKUs where mismatched"):
         updated_df = st.session_state['master_df'].copy()
-        sku_mismatch_df = st.session_state['sku_mismatch_df']
+        sku_mismatch_df = st.session_state['sku_mismatch_df'].drop_duplicates(subset='match_key')
         updated_df.loc[updated_df[st.session_state['match_key_master']].isin(sku_mismatch_df['match_key']), st.session_state['sku_name_master']] = updated_df[st.session_state['match_key_master']].map(sku_mismatch_df.set_index('match_key')['supplier_sku'])
         st.session_state['updated_df'] = updated_df
         st.session_state['skus_updated'] = len(sku_mismatch_df)

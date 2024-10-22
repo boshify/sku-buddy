@@ -50,7 +50,13 @@ def load_file(file, file_type, delimiter=None):
 def rename_duplicate_columns(df):
     cols = pd.Series(df.columns)
     for dup in cols[cols.duplicated()].unique():
-        cols[cols[cols == dup].index.values.tolist()] = [f"{dup}_{i}" if i != 0 else dup for i in range(sum(cols == dup))]
+        count = 1
+        for idx in cols[cols == dup].index:
+            if count == 1:
+                count += 1
+                continue
+            cols[idx] = f"{dup}_{count}"
+            count += 1
     df.columns = cols
     return df
 

@@ -19,9 +19,13 @@ def load_file(file, file_type, delimiter=None):
                 except csv.Error:
                     delimiter = ','  # Default to comma if detection fails
                 file.seek(0)
-            return pd.read_csv(file, delimiter=delimiter, on_bad_lines='skip', engine='python', encoding='utf-8')
+            df = pd.read_csv(file, delimiter=delimiter, on_bad_lines='skip', engine='python', encoding='utf-8')
+            df = rename_duplicate_columns(df)
+            return df
         elif file_type == "xlsx":
-            return pd.read_excel(file, engine='openpyxl')
+            df = pd.read_excel(file, engine='openpyxl')
+            df = rename_duplicate_columns(df)
+            return df
         elif file_type == "xml":
             tree = etree.parse(BytesIO(file.read()))
             products = tree.findall('.//product')
@@ -32,7 +36,9 @@ def load_file(file, file_type, delimiter=None):
                 price = p.findtext('.//price')
                 if sku is not None and product_name is not None and price is not None:
                     data.append([sku.strip() if sku else None, product_name.strip() if product_name else None, price.strip() if price else None])
-            return pd.DataFrame(data, columns=['SKU', 'Product_Name', 'Price'])
+            df = pd.DataFrame(data, columns=['SKU', 'Product_Name', 'Price'])
+            df = rename_duplicate_columns(df)
+            return df
     except pd.errors.ParserError as e:
         st.error(f"Error loading file: {e}. This may be due to an issue with file formatting. Please check your CSV file for formatting errors.")
         return None
@@ -59,7 +65,6 @@ if master_file:
     file_type = master_file.name.split(".")[-1]
     master_df = load_file(master_file, file_type)
     if master_df is not None:
-        master_df = rename_duplicate_columns(master_df)
         master_df.columns = master_df.columns.str.strip().str.lower()
         st.success(f"Master file '{master_file.name}' loaded successfully!")
         st.write("Master File Preview:", master_df.head())
@@ -85,7 +90,6 @@ if supplier_source == "Upload from Computer":
         file_type = supplier_file.name.split(".")[-1]
         supplier_df = load_file(supplier_file, file_type, delimiter=None)
         if supplier_df is not None:
-            supplier_df = rename_duplicate_columns(supplier_df)
             supplier_df.columns = supplier_df.columns.str.strip().str.lower()
             st.success(f"Supplier file '{supplier_file.name}' loaded successfully!")
             st.write("Supplier File Preview:", supplier_df.head())
@@ -113,7 +117,6 @@ elif supplier_source == "From URL":
                 file_type = supplier_url.split(".")[-1]
                 supplier_df = load_file(BytesIO(response.content), file_type, delimiter=None)
                 if supplier_df is not None:
-                    supplier_df = rename_duplicate_columns(supplier_df)
                     supplier_df.columns = supplier_df.columns.str.strip().str.lower()
                     st.success(f"Supplier file from URL '{supplier_url}' loaded successfully!")
                     st.write("Supplier File Preview:", supplier_df.head())

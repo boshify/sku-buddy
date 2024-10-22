@@ -63,6 +63,7 @@ def rename_duplicate_columns(df):
             count += 1
     df.columns = cols
     df = df.loc[:, ~df.columns.duplicated()]  # Remove any remaining duplicate columns
+    df.columns = df.columns.str.replace(r'[\n\r]', ' ', regex=True)  # Replace newlines and carriage returns in column names
     return df
 
 # Streamlit App Layout

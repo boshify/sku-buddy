@@ -19,7 +19,7 @@ def load_file(file, file_type, delimiter=None):
                 except csv.Error:
                     delimiter = ','  # Default to comma if detection fails
                 file.seek(0)
-            df = pd.read_csv(file, delimiter=delimiter, on_bad_lines='skip', engine='c', encoding='utf-8')
+            df = pd.read_csv(file, delimiter=delimiter, on_bad_lines='skip', engine='python', encoding='utf-8')
             df = rename_duplicate_columns(df)
             return df
         elif file_type == "xlsx":
@@ -48,11 +48,7 @@ def load_file(file, file_type, delimiter=None):
 
 # Function to rename duplicate columns by appending suffixes
 def rename_duplicate_columns(df):
-    df.columns = df.columns.str.strip()  # Strip whitespace from column names
     cols = pd.Series(df.columns)
-    for idx in range(len(cols)):
-        if not cols[idx] or pd.isna(cols[idx]):
-            cols[idx] = f"Unnamed_{idx}"
     for dup in cols[cols.duplicated()].unique():
         count = 1
         for idx in cols[cols == dup].index:
@@ -62,8 +58,6 @@ def rename_duplicate_columns(df):
             cols[idx] = f"{dup}_{count}"
             count += 1
     df.columns = cols
-    df = df.loc[:, ~df.columns.duplicated()]  # Remove any remaining duplicate columns
-    df.columns = df.columns.str.replace(r'[\n\r]', ' ', regex=True)  # Replace newlines and carriage returns in column names
     return df
 
 # Streamlit App Layout
@@ -137,3 +131,107 @@ elif supplier_source == "From URL":
 
         except Exception as e:
             st.error(f"Failed to load file from URL: {e}")
+
+# Step 3: Set Supplier SKU and Match Key
+if 'supplier_df' in st.session_state:
+    st.header("Step 3: Select Supplier SKU and Match Key Fields")
+    
+    supplier_df = st.session_state['supplier_df']
+    
+    sku_name_supplier = st.selectbox("Select SKU Column from Supplier File", supplier_df.columns)
+    match_key_supplier = st.selectbox("Select Match Key Column from Supplier File", supplier_df.columns)
+    st.session_state['sku_name_supplier'] = sku_name_supplier
+    st.session_state['match_key_supplier'] = match_key_supplier
+
+# Step 4: Process Matching
+if 'master_df' in st.session_state and 'supplier_df' in st.session_state:
+    st.header("Step 4: Match Products and Update SKUs")
+
+    if st.button("Match Products and Update SKUs") or 'matched_df' not in st.session_state:
+        master_df = st.session_state['master_df']
+        supplier_df = st.session_state['supplier_df']
+        sku_name_master = st.session_state['sku_name_master']
+        match_key_master = st.session_state['match_key_master']
+        sku_name_supplier = st.session_state['sku_name_supplier']
+        match_key_supplier = st.session_state['match_key_supplier']
+
+        # Ensure all match keys are treated as strings to avoid mismatches due to type differences
+        try:
+            if match_key_master not in master_df.columns or match_key_supplier not in supplier_df.columns:
+                st.error("Selected Match Key columns do not exist in the respective DataFrames. Please select valid columns.")
+                st.stop()
+
+            if sku_name_master not in master_df.columns or sku_name_supplier not in supplier_df.columns:
+                st.error("Selected SKU columns do not exist in the respective DataFrames. Please select valid columns.")
+                st.stop()
+
+            master_df[match_key_master] = master_df[match_key_master].fillna('').astype(str).str.strip().str.lower()
+            supplier_df[match_key_supplier] = supplier_df[match_key_supplier].fillna('').astype(str).str.strip().str.lower()
+
+            # Ensure the SKU columns are also treated as strings
+            master_df[sku_name_master] = master_df[sku_name_master].fillna('').astype(str).str.strip()
+            supplier_df[sku_name_supplier] = supplier_df[sku_name_supplier].fillna('').astype(str).str.strip()
+        except KeyError as e:
+            st.error(f"A KeyError occurred while converting columns to string: {e}. Please make sure the selected columns exist.")
+            st.stop()
+
+        # Proceed with matching using column names directly
+        try:
+            # Rename columns for merge to prevent conflicts
+            master_df_renamed = rename_duplicate_columns(master_df.rename(columns={
+                match_key_master: 'match_key',
+                sku_name_master: 'master_sku'
+            }))
+            supplier_df_renamed = rename_duplicate_columns(supplier_df.rename(columns={
+                match_key_supplier: 'match_key',
+                sku_name_supplier: 'supplier_sku'
+            }))
+
+            matched_df = pd.merge(
+                master_df_renamed, 
+                supplier_df_renamed, 
+                on='match_key', 
+                how='inner'
+            )
+            st.session_state['matched_df'] = matched_df
+
+            # Display rows with mismatched SKUs
+            sku_mismatch_df = matched_df[matched_df['master_sku'] != matched_df['supplier_sku']]
+            if not sku_mismatch_df.empty:
+                st.write("Rows with mismatched SKUs:", sku_mismatch_df[['match_key', 'master_sku', 'supplier_sku']])
+                st.session_state['sku_mismatch_df'] = sku_mismatch_df
+
+        except KeyError as e:
+            st.error(f"A KeyError occurred during the merge: {e}. Please make sure the selected columns exist and have matching values.")
+            st.stop()
+
+    # Provide an option to overwrite Master SKUs with Supplier SKUs where mismatched
+    if 'sku_mismatch_df' in st.session_state and st.button("Overwrite Master SKUs with Supplier SKUs where mismatched"):
+        updated_df = st.session_state['master_df'].copy()
+        sku_mismatch_df = st.session_state['sku_mismatch_df'].drop_duplicates(subset='match_key')
+        updated_df.loc[updated_df[st.session_state['match_key_master']].isin(sku_mismatch_df['match_key']), st.session_state['sku_name_master']] = updated_df[st.session_state['match_key_master']].map(sku_mismatch_df.set_index('match_key')['supplier_sku'])
+        st.session_state['updated_df'] = updated_df
+        st.session_state['skus_updated'] = len(sku_mismatch_df)
+
+        # Find products from supplier that are not in master
+        unmatched_df = st.session_state['supplier_df'][~st.session_state['supplier_df'][st.session_state['match_key_supplier']].isin(st.session_state['matched_df']['match_key'])]
+        st.session_state['unmatched_df'] = unmatched_df
+        st.session_state['products_not_in_master'] = len(unmatched_df)
+
+        # Display success message with summary
+        st.success(f"SKUs Updated: {st.session_state['skus_updated']}. Products Not In Master: {st.session_state['products_not_in_master']}")
+
+# Step 5: Provide Downloadable Files if Available
+if 'updated_df' in st.session_state and 'unmatched_df' in st.session_state:
+    st.header("Step 5: Download Updated Files")
+
+    updated_df = st.session_state['updated_df']
+    unmatched_df = st.session_state['unmatched_df']
+
+    # Download updated master file with new SKUs
+    updated_csv = updated_df.to_csv(index=False).encode('utf-8')
+    st.download_button("Download Master with Updated SKUs", updated_csv, "updated_master.csv", "text/csv")
+
+    # Download supplier products not found in the master
+    unmatched_csv = unmatched_df.to_csv(index=False).encode('utf-8')
+    st.download_button("Download Products from Supplier Not Found in Master", unmatched_csv, "unmatched_products.csv", "text/csv")

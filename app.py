@@ -12,14 +12,14 @@ def load_file(file, file_type, delimiter=None):
         if file_type == "csv":
             if delimiter is None:
                 # Automatically detect delimiter if not provided
-                sample = file.read(1024).decode()
+                sample = file.read(1024).decode(errors='replace')
                 sniffer = csv.Sniffer()
                 try:
                     delimiter = sniffer.sniff(sample).delimiter
                 except csv.Error:
-                    delimiter = '|'
+                    delimiter = ','  # Default to comma if detection fails
                 file.seek(0)
-            return pd.read_csv(file, delimiter=delimiter, on_bad_lines='skip', engine='python')
+            return pd.read_csv(file, delimiter=delimiter, on_bad_lines='skip', engine='python', encoding='utf-8')
         elif file_type == "xlsx":
             return pd.read_excel(file, engine='openpyxl')
         elif file_type == "xml":
